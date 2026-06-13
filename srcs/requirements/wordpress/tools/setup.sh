@@ -4,7 +4,6 @@ set -e
 mkdir -p /var/www/html
 cd /var/www/html
 
-# Only install on first run (volume empty)
 if [ ! -f wp-config.php ]; then
     DB_PASSWORD=$(cat /run/secrets/db_password)
     WP_ADMIN_PASS=$(sed -n '1p' /run/secrets/credentials)
@@ -18,11 +17,9 @@ if [ ! -f wp-config.php ]; then
         --dbpass="${DB_PASSWORD}" \
         --dbhost=mariadb:3306
 
-    # Redis object cache constants
     wp config set --allow-root WP_REDIS_HOST redis
     wp config set --allow-root WP_REDIS_PORT 6379 --raw
 
-    # Wait for MariaDB to accept connections before installing
     until wp db check --allow-root 2>/dev/null; do
         sleep 1
     done
@@ -44,5 +41,4 @@ if [ ! -f wp-config.php ]; then
     wp redis enable --allow-root
 fi
 
-# Replace shell → php-fpm becomes PID 1
 exec php-fpm83 -F

@@ -1,15 +1,12 @@
 #!/bin/sh
 set -e
 
-# First-time initialisation only
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     mysql_install_db --user=mysql --datadir=/var/lib/mysql --skip-test-db
 
-    # Start temporarily without networking for secure setup
     mysqld --user=mysql --skip-networking &
     MYSQL_PID=$!
 
-    # Wait until server is ready
     until mysqladmin ping -h localhost --silent 2>/dev/null; do
         sleep 0.2
     done
@@ -29,5 +26,4 @@ EOSQL
     wait "$MYSQL_PID"
 fi
 
-# Replace shell → mysqld becomes PID 1
 exec mysqld --user=mysql
