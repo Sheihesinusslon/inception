@@ -67,7 +67,7 @@ Named volumes use `driver: local` with `type: none / o: bind / device:` — data
 | `srcs/.env` | Non-sensitive env vars (domain, db name, WP usernames) |
 | `srcs/docker-compose.yml` | Service, volume, network, secret definitions |
 | `srcs/requirements/nginx/conf/nginx.conf.template` | NGINX config; `${DOMAIN_NAME}` substituted at startup |
-| `srcs/requirements/mariadb/conf/50-server.cnf` | MariaDB server config |
+| `srcs/requirements/mariadb/conf/mariadb-server.cnf` | MariaDB server config (overrides the distro default, which disables networking) |
 | `srcs/requirements/wordpress/conf/www.conf` | PHP-FPM pool config |
 | `srcs/requirements/bonus/redis/conf/redis.conf` | Redis config (maxmemory, policy) |
 
@@ -77,5 +77,42 @@ Secrets are mounted read-only at `/run/secrets/<name>` inside containers. They a
 
 ## First-run initialisation logic
 
-- **MariaDB** (`tools/init.sh`): if `/var/lib/mysql/mysql` does not exist, runs `mysql_install_db`, starts mysqld without networking, creates database and user from secrets, then shuts down and re-launches with `exec mysqld` (PID 1).
-- **WordPress** (`tools/setup.sh`): if `wp-config.php` does not exist, downloads WordPress core via WP-CLI, creates config (reads DB password from secret), waits for MariaDB, runs `wp core install`, creates the editor user, installs and enables the Redis Object Cache plugin, then `exec php-fpm83 -F` (PID 1).
+- **MariaDB** (`tools/init.sh`): creates `/run/mysqld` (socket dir, wiped each start). If `/var/lib/mysql/mysql` does not exist, runs `mysql_install_db`, starts mysqld without networking, creates database and user from secrets, then shuts down and re-launches with `exec mysqld` (PID 1).
+- **WordPress** (`tools/setup.sh`): each phase is idempotent — downloads core if missing, creates config (`--skip-check`, reads DB password from secret) if missing, waits for MariaDB with `mariadb-admin ping`, then runs `wp core install` + editor user + Redis Object Cache plugin if the site is not yet installed, and finally `exec php-fpm83 -F` (PID 1).
+
+## TLS verification
+
+NGINX is the only entry point (port 443) and must accept **only TLSv1.2 / TLSv1.3**.
+
+```sh
+# Negotiated protocol + cipher
+openssl s_client -connect ngusev.42.fr:443 -servername ngusev.42.fr </dev/null 2>/dev/null \
+    | grep -E "Protocol|Cipher"
+
+# TLSv1.2 and 1.3 must succeed (expect 200)
+curl -sko /dev/null -w "1.2 -> %{http_code}\n" --tlsv1.2 --tls-max 1.2 https://ngusev.42.fr
+curl -sko /dev/null -w "1.3 -> %{http_code}\n" --tlsv1.3            https://ngusev.42.fr
+
+# TLSv1.1 must fail (handshake error / 000)
+curl -sko /dev/null -w "1.1 -> %{http_code}\n" --tlsv1.1 --tls-max 1.1 https://ngusev.42.fr
+```
+
+Inspect the generated certificate inside the container:
+
+```sh
+docker exec nginx openssl x509 -in /etc/nginx/ssl/nginx.crt -noout -subject -dates
+```
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `mkdir: /home/ngusev: Permission denied` | Host user isn't `ngusev`; `/home` not writable | `sudo mkdir -p /home/ngusev/data && sudo chown -R $USER /home/ngusev` |
+| `docker: command not found` | Docker not installed | Install Docker Engine + Compose plugin |
+| MariaDB: `Bind on unix socket: No such file` | `/run/mysqld` missing (fresh tmpfs) | Handled in `init.sh`; ensure it runs before `mysqld` |
+| MariaDB up but `2002 Connection refused` | Distro default forces `skip-networking` | Our `mariadb-server.cnf` overrides it (`skip-networking = 0`) |
+| WordPress: `Class "Phar" not found` | WP-CLI needs the PHP `phar` extension | `php83-phar` installed in the Dockerfile |
+| WordPress: `Allowed memory size ... exhausted` | PHP default `memory_limit` too low for unzip | `conf/php.ini` raises it to 512M |
+| WordPress restart loop, "files already present" | Non-idempotent setup after a crash | `setup.sh` guards each phase; uses `wp config create --skip-check` |
+| WordPress stuck waiting for DB forever | `wp db check` needs `mysqlcheck` (absent) | Wait with `mariadb-admin ping` (`mariadb-client` installed) |
+| Need a clean slate | Stale volume data | `make fclean && make` (removes host data dirs) |

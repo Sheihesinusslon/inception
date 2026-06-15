@@ -46,10 +46,35 @@ These files are **gitignored**. Keep them safe locally.
 ## Check services are running
 
 ```sh
-make ps                      # container status
+make ps                      # container status (all should be "Up")
 docker logs nginx            # NGINX logs
 docker logs wordpress        # PHP-FPM / WP setup logs
 docker logs mariadb          # MariaDB logs
 docker logs redis            # Redis logs
 docker exec -it redis redis-cli ping   # should return PONG
 ```
+
+## Verify HTTPS / TLS
+
+The site is served **only** over HTTPS on port 443. To confirm the secure connection:
+
+```sh
+curl -kIv https://ngusev.42.fr 2>&1 | grep -iE "SSL connection|TLS|HTTP/"
+```
+
+- `-k` accepts the self-signed certificate.
+- A `HTTP/1.1 200 OK` line means the site is up.
+- The negotiated protocol must be **TLSv1.2** or **TLSv1.3** (older versions are refused).
+
+In a browser, click the padlock → *Certificate* to see it is issued for `ngusev.42.fr` (self-signed, valid one year).
+
+## Troubleshooting
+
+| Symptom | Likely cause / fix |
+|---|---|
+| Browser can't reach `ngusev.42.fr` | Add `127.0.0.1 ngusev.42.fr` to `/etc/hosts` |
+| "Your connection is not private" warning | Expected — the certificate is self-signed. Click *Advanced → Proceed* |
+| A container shows `Restarting` in `make ps` | Read its logs: `docker logs <service>` |
+| Can't log in to `/wp-admin` | Check the password matches the correct line of `secrets/credentials.txt` (line 1 = admin) |
+| Site loads but looks broken / no styles | Wait a few seconds on first start — WordPress finishes installing in the background |
+| Page errors after a crash | Restart the stack: `make down && make` |

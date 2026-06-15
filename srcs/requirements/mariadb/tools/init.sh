@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+# /run is a fresh tmpfs each start; mysqld needs this dir for its socket
+mkdir -p /run/mysqld
+chown -R mysql:mysql /run/mysqld
+
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     mysql_install_db --user=mysql --datadir=/var/lib/mysql --skip-test-db
 

@@ -4,14 +4,16 @@ set -e
 mkdir -p /var/www/html
 cd /var/www/html
 
-if [ ! -f wp-config.php ]; then
-    DB_PASSWORD=$(cat /run/secrets/db_password)
-    WP_ADMIN_PASS=$(sed -n '1p' /run/secrets/credentials)
-    WP_USER_PASS=$(sed -n '2p'  /run/secrets/credentials)
+DB_PASSWORD=$(cat /run/secrets/db_password)
 
+# Download core only if not already present
+if [ ! -f wp-load.php ]; then
     wp core download --allow-root --locale=en_US
+fi
 
-    wp config create --allow-root \
+# Create config only if missing (--skip-check: DB may not be up yet)
+if [ ! -f wp-config.php ]; then
+    wp config create --allow-root --skip-check \
         --dbname="${MYSQL_DATABASE}" \
         --dbuser="${MYSQL_USER}" \
         --dbpass="${DB_PASSWORD}" \
@@ -19,10 +21,17 @@ if [ ! -f wp-config.php ]; then
 
     wp config set --allow-root WP_REDIS_HOST redis
     wp config set --allow-root WP_REDIS_PORT 6379 --raw
+fi
 
-    until wp db check --allow-root 2>/dev/null; do
-        sleep 1
-    done
+# Wait for MariaDB to accept connections
+until mariadb-admin ping -h mariadb -u "${MYSQL_USER}" -p"${DB_PASSWORD}" --silent 2>/dev/null; do
+    sleep 1
+done
+
+# Install site and users only once
+if ! wp core is-installed --allow-root 2>/dev/null; then
+    WP_ADMIN_PASS=$(sed -n '1p' /run/secrets/credentials)
+    WP_USER_PASS=$(sed -n '2p'  /run/secrets/credentials)
 
     wp core install --allow-root \
         --url="https://${DOMAIN_NAME}" \

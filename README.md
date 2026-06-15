@@ -115,7 +115,10 @@ Alpine's base image is ~5 MB vs ~120 MB for Debian. Smaller footprint, fewer def
 - [WP-CLI: wp config create](https://developer.wordpress.org/cli/commands/config/create/)
 - [WP-CLI: wp core install](https://developer.wordpress.org/cli/commands/core/install/)
 - [WP-CLI: wp user create](https://developer.wordpress.org/cli/commands/user/create/)
-- [Redis Object Cache plugin](https://wordpress.org/plugins/redis-cache/)
+- [Redis configuration directives reference](https://redis.io/docs/latest/operate/oss_and_stack/management/config/)
+- [Redis eviction policies (`maxmemory-policy`)](https://redis.io/docs/latest/develop/reference/eviction/)
+- [Docker Compose networking — how containers reach each other](https://docs.docker.com/compose/how-tos/networking/)
+- [Docker Engine networking overview — bridge networks & container DNS](https://docs.docker.com/engine/network/)
 - [PID 1 and signal handling in containers — Deni Bertović](https://www.denibertovic.com/posts/containers-and-signal-handling-why-you-need-to-care-about-pid-1/)
 
-**AI usage:** Claude (Sonnet 4.6) was used to scaffold Dockerfile structures, nginx config templates, and MariaDB init script patterns. All generated content was reviewed, tested, and understood before inclusion.
+**AI usage:** AI was used to scaffold Dockerfile structures, config templates, and init scripts. Later it was used for the explanation of the documented configuration of the apps used in the setup, as well as all project documentation was produced by AI. All generated content was reviewed, tested, and understood before inclusion.
