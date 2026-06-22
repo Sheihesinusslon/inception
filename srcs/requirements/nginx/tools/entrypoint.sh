@@ -10,7 +10,7 @@ if [ ! -f /etc/nginx/ssl/nginx.crt ]; then
         -subj "/C=ES/ST=Barcelona/L=Barcelona/O=42Barcelona/OU=inception/CN=${DOMAIN_NAME}"
 fi
 
-envsubst '${DOMAIN_NAME}' \
+envsubst '${DOMAIN_NAME} ${NGINX_PORT} ${PHP_FPM_PORT}' \
     < /etc/nginx/nginx.conf.template \
     > /etc/nginx/nginx.conf
 

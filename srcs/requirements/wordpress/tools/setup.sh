@@ -5,30 +5,35 @@ mkdir -p /var/www/html
 cd /var/www/html
 
 DB_PASSWORD=$(cat /run/secrets/db_password)
+DB_HOST="mariadb:${MYSQL_PORT:-3306}"
 
-# Download core only if not already present
+envsubst '${PHP_FPM_PORT} ${PHP_FPM_MAX_CHILDREN}' \
+    < /etc/php83/php-fpm.d/www.conf.template \
+    > /etc/php83/php-fpm.d/www.conf
+envsubst '${PHP_MEMORY_LIMIT} ${PHP_UPLOAD_MAX_FILESIZE} ${PHP_POST_MAX_SIZE}' \
+    < /etc/php83/conf.d/99-custom.ini.template \
+    > /etc/php83/conf.d/99-custom.ini
+
 if [ ! -f wp-load.php ]; then
     wp core download --allow-root --locale=en_US
 fi
 
-# Create config only if missing (--skip-check: DB may not be up yet)
 if [ ! -f wp-config.php ]; then
     wp config create --allow-root --skip-check \
         --dbname="${MYSQL_DATABASE}" \
         --dbuser="${MYSQL_USER}" \
         --dbpass="${DB_PASSWORD}" \
-        --dbhost=mariadb:3306
-
-    wp config set --allow-root WP_REDIS_HOST redis
-    wp config set --allow-root WP_REDIS_PORT 6379 --raw
+        --dbhost="${DB_HOST}"
 fi
 
-# Wait for MariaDB to accept connections
-until mariadb-admin ping -h mariadb -u "${MYSQL_USER}" -p"${DB_PASSWORD}" --silent 2>/dev/null; do
+wp config set --allow-root DB_HOST       "${DB_HOST}"
+wp config set --allow-root WP_REDIS_HOST redis
+wp config set --allow-root WP_REDIS_PORT "${REDIS_PORT:-6379}" --raw
+
+until mariadb-admin ping -h mariadb -P "${MYSQL_PORT:-3306}" -u "${MYSQL_USER}" -p"${DB_PASSWORD}" --silent 2>/dev/null; do
     sleep 1
 done
 
-# Install site and users only once
 if ! wp core is-installed --allow-root 2>/dev/null; then
     WP_ADMIN_PASS=$(sed -n '1p' /run/secrets/credentials)
     WP_USER_PASS=$(sed -n '2p'  /run/secrets/credentials)

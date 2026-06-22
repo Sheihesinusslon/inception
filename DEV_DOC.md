@@ -20,7 +20,7 @@
 
    `credentials.txt` format: line 1 = WP admin password, line 2 = WP editor password.
 
-3. **Review `srcs/.env`** — set `DOMAIN_NAME`, `MYSQL_DATABASE`, `MYSQL_USER`, WP usernames/emails if needed.
+3. **Review `srcs/.env`** — all tunable settings live here (domain, service ports, DB name/user, WP usernames/emails, PHP/Redis memory). See [Tunable settings](#tunable-settings).
 
 4. **Build and launch:**
 
@@ -51,6 +51,33 @@ docker exec -it wordpress wp --allow-root plugin list
 docker exec -it redis    redis-cli info server
 ```
 
+Rebuild a single container (only when its Dockerfile/scripts/templates change):
+
+```sh
+docker compose -f srcs/docker-compose.yml --env-file srcs/.env up -d --build wordpress
+```
+
+## Tunable settings
+
+```sh
+# edit srcs/.env, then (NO --build):
+docker compose -f srcs/docker-compose.yml --env-file srcs/.env up -d
+```
+
+| Variable | Default | |
+|---|---|---|
+| `DOMAIN_NAME` | `ngusev.42.fr` | TLS CN + site URL |
+| `NGINX_PORT` | `443` | public HTTPS port |
+| `MYSQL_PORT` | `3306` | mysqld port; WP connects here |
+| `PHP_FPM_PORT` | `9000` | PHP-FPM port; nginx `fastcgi_pass` |
+| `PHP_FPM_MAX_CHILDREN` | `5` | FPM worker cap |
+| `PHP_MEMORY_LIMIT` / `PHP_UPLOAD_MAX_FILESIZE` / `PHP_POST_MAX_SIZE` | `512M` / `64M` / `64M` | PHP limits |
+| `REDIS_PORT` | `6379` | Redis port; WP cache target |
+| `REDIS_MAXMEMORY` / `REDIS_MAXMEMORY_POLICY` | `256mb` / `allkeys-lru` | Redis memory |
+
+`MYSQL_DATABASE` / `MYSQL_USER` are written into the DB volume on first init —
+changing them later needs `make fclean && make`. Everything above changes live.
+
 ## Data persistence
 
 | Volume | Host path | Container path |
@@ -62,14 +89,17 @@ Named volumes use `driver: local` with `type: none / o: bind / device:` — data
 
 ## Configuration files
 
+Config files ending in `.template` hold `${VAR}` placeholders filled from `.env`
+by the container entrypoint at startup.
+
 | File | Purpose |
 |---|---|
-| `srcs/.env` | Non-sensitive env vars (domain, db name, WP usernames) |
+| `srcs/.env` | All tunable settings (see [Tunable settings](#tunable-settings)) |
 | `srcs/docker-compose.yml` | Service, volume, network, secret definitions |
-| `srcs/requirements/nginx/conf/nginx.conf.template` | NGINX config; `${DOMAIN_NAME}` substituted at startup |
-| `srcs/requirements/mariadb/conf/mariadb-server.cnf` | MariaDB server config (overrides the distro default, which disables networking) |
-| `srcs/requirements/wordpress/conf/www.conf` | PHP-FPM pool config |
-| `srcs/requirements/bonus/redis/conf/redis.conf` | Redis config (maxmemory, policy) |
+| `srcs/requirements/nginx/conf/nginx.conf.template` | NGINX; `${DOMAIN_NAME} ${NGINX_PORT} ${PHP_FPM_PORT}` substituted |
+| `srcs/requirements/mariadb/conf/mariadb-server.cnf` | MariaDB config (overrides distro default; port set via `--port` flag in `init.sh`) |
+| `srcs/requirements/wordpress/conf/www.conf.template`, `php.ini.template` | PHP-FPM pool + PHP limits |
+| `srcs/requirements/bonus/redis/conf/redis.conf.template` | Redis (port, maxmemory, policy) |
 
 ## Secrets
 
@@ -77,8 +107,8 @@ Secrets are mounted read-only at `/run/secrets/<name>` inside containers. They a
 
 ## First-run initialisation logic
 
-- **MariaDB** (`tools/init.sh`): creates `/run/mysqld` (socket dir, wiped each start). If `/var/lib/mysql/mysql` does not exist, runs `mysql_install_db`, starts mysqld without networking, creates database and user from secrets, then shuts down and re-launches with `exec mysqld` (PID 1).
-- **WordPress** (`tools/setup.sh`): each phase is idempotent — downloads core if missing, creates config (`--skip-check`, reads DB password from secret) if missing, waits for MariaDB with `mariadb-admin ping`, then runs `wp core install` + editor user + Redis Object Cache plugin if the site is not yet installed, and finally `exec php-fpm83 -F` (PID 1).
+- **MariaDB** (`tools/init.sh`): creates `/run/mysqld` (socket dir, wiped each start). If `/var/lib/mysql/mysql` does not exist, runs `mysql_install_db`, starts mysqld without networking, creates database and user from secrets, then shuts down and re-launches with `exec mysqld --port=${MYSQL_PORT}` (PID 1).
+- **WordPress** (`tools/setup.sh`): renders `www.conf`/`php.ini` from env, downloads core + creates `wp-config.php` if missing, then **reconciles `DB_HOST` and Redis host/port on every start** (so port changes apply without wiping the volume), waits for MariaDB with `mariadb-admin ping -P ${MYSQL_PORT}`, runs `wp core install` + author user + Redis cache plugin if not yet installed, and finally `exec php-fpm83 -F` (PID 1).
 
 ## TLS verification
 

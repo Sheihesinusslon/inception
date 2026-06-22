@@ -2,10 +2,10 @@
 user  = nobody
 group = nobody
 
-listen = 9000
+listen = ${PHP_FPM_PORT}
 
 pm                   = dynamic
-pm.max_children      = 5
+pm.max_children      = ${PHP_FPM_MAX_CHILDREN}
 pm.start_servers     = 2
 pm.min_spare_servers = 1
 pm.max_spare_servers = 3

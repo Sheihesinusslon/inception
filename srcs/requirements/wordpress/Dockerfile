@@ -24,14 +24,15 @@ RUN apk add --no-cache \
     php83-zip \
     php83-json \
     mariadb-client \
+    gettext \
     wget
 
 RUN wget -q https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
         -O /usr/local/bin/wp \
     && chmod +x /usr/local/bin/wp
 
-COPY conf/www.conf /etc/php83/php-fpm.d/www.conf
-COPY conf/php.ini /etc/php83/conf.d/99-custom.ini
+COPY conf/www.conf.template /etc/php83/php-fpm.d/www.conf.template
+COPY conf/php.ini.template  /etc/php83/conf.d/99-custom.ini.template
 COPY tools/setup.sh /setup.sh
 
 RUN chmod +x /setup.sh

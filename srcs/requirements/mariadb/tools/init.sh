@@ -30,4 +30,4 @@ EOSQL
     wait "$MYSQL_PID"
 fi
 
-exec mysqld --user=mysql
+exec mysqld --user=mysql --port="${MYSQL_PORT:-3306}"

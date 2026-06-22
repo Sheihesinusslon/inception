@@ -11,7 +11,7 @@ http {
     keepalive_timeout 65;
 
     server {
-        listen 443 ssl;
+        listen ${NGINX_PORT} ssl;
         server_name ${DOMAIN_NAME};
 
         ssl_certificate     /etc/nginx/ssl/nginx.crt;
@@ -28,7 +28,7 @@ http {
 
         location ~ \.php$ {
             try_files      $uri =404;
-            fastcgi_pass   wordpress:9000;
+            fastcgi_pass   wordpress:${PHP_FPM_PORT};
             fastcgi_index  index.php;
             include        fastcgi_params;
             fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
