@@ -47,7 +47,7 @@
 ```sh
 docker compose -f srcs/docker-compose.yml ps
 docker exec -it mariadb  mariadb -u root -p
-docker exec -it wordpress wp --allow-root plugin list
+docker exec -it -w /var/www/html wordpress wp --allow-root plugin list
 docker exec -it redis    redis-cli info server
 ```
 
