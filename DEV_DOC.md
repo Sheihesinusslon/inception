@@ -60,7 +60,7 @@ docker compose -f srcs/docker-compose.yml --env-file srcs/.env up -d --build wor
 ## Tunable settings
 
 ```sh
-# edit srcs/.env, then (NO --build):
+# if edit srcs/.env, no --build is required:
 docker compose -f srcs/docker-compose.yml --env-file srcs/.env up -d
 ```
 

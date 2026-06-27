@@ -2,7 +2,7 @@
 
 ## Description
 
-Inception is a system administration project that sets up a small web infrastructure using Docker Compose. It runs WordPress backed by MariaDB, served through NGINX over HTTPS (TLSv1.2/1.3), with Redis object cache as a bonus service. Each service lives in its own container built from a custom Dockerfile based on Alpine 3.20.
+Inception is a system administration project that sets up a small web infrastructure using Docker Compose. It runs WordPress backed by MariaDB, served through NGINX over HTTPS (TLSv1.2/1.3), with Redis object cache as a bonus service. Each service lives in its own container built from a custom Dockerfile based on Alpine 3.23.
 
 ## Instructions
 
@@ -42,13 +42,13 @@ WordPress admin panel: **https://ngusev.42.fr/wp-admin**
 
 ### Use of Docker
 
-Each service (NGINX, WordPress/PHP-FPM, MariaDB, Redis) runs in a dedicated container built from a custom Dockerfile. No pre-built application images are used; only Alpine 3.20 as the base.
+Each service (NGINX, WordPress/PHP-FPM, MariaDB, Redis) runs in a dedicated container built from a custom Dockerfile. No pre-built application images are used; only Alpine 3.23 as the base.
 
 ### Design Choices
 
 | Topic | Choice | Reason |
 |---|---|---|
-| Base image | Alpine 3.20 (penultimate stable) | ~5 MB vs ~120 MB for Debian; minimal attack surface |
+| Base image | Alpine 3.23 (penultimate stable) | ~5 MB vs ~120 MB for Debian; minimal attack surface |
 | TLS | Self-signed cert, TLSv1.2+1.3 | Requirement; generated at first start |
 | PID 1 | `exec` in all entrypoints | Daemon replaces shell → receives signals directly |
 | Secrets | Docker secrets (files in `/run/secrets/`) | Passwords never in env vars or Dockerfiles |
@@ -93,7 +93,7 @@ volumes:
       device: /home/ngusev/data/mariadb
 ```
 
-Docker treats it as a named volume (services reference `db_data`, not a raw path), but data physically lives at the required host location. The `driver_opts` are passed directly to `mount(8)`.
+Docker treats it as a named volume (services reference `db_data`, not a raw path), but data physically lives at the required host location.
 
 ### Alpine vs Debian
 
