@@ -2,7 +2,7 @@
 
 ## Description
 
-Inception is a system administration project that sets up a small web infrastructure using Docker Compose. It runs WordPress backed by MariaDB, served through NGINX over HTTPS (TLSv1.2/1.3), with Redis object cache as a bonus service. Each service lives in its own container built from a custom Dockerfile based on Alpine 3.23.
+Inception is a system administration project that sets up a small web infrastructure using Docker Compose. It runs WordPress backed by MariaDB, served through NGINX over HTTPS (TLSv1.2/1.3). The full bonus is implemented: Redis object cache, an FTP server on the WordPress volume, a Flask website, Adminer, and Netdata monitoring. Each service lives in its own container built from a custom Dockerfile based on Alpine 3.23.
 
 ## Instructions
 
@@ -20,10 +20,12 @@ Create the three secret files — they are gitignored and must never be committe
 echo "your_db_user_password"   > secrets/db_password.txt
 echo "your_db_root_password"   > secrets/db_root_password.txt
 printf "your_admin_password\nyour_editor_password\n" > secrets/credentials.txt
+echo "your_ftp_password"        > secrets/ftp_password.txt
 ```
 
 - **Line 1** of `credentials.txt` → WordPress admin password (admin login: `ngusev_wp`)
 - **Line 2** of `credentials.txt` → WordPress editor password (login: `ngusev_editor`)
+- `ftp_password.txt` → password for the FTP user (`ftpuser`)
 
 ### Run
 
@@ -37,6 +39,19 @@ make logs     # follow logs
 
 The site is available at **https://ngusev.42.fr** after startup.  
 WordPress admin panel: **https://ngusev.42.fr/wp-admin**
+
+### Bonus services & access
+
+| Service | Access | Notes |
+|---|---|---|
+| WordPress (NGINX/TLS) | `https://ngusev.42.fr` | mandatory |
+| Redis cache | internal | object cache for WordPress |
+| FTP server | `ftp://127.0.0.1:21` (user `ftpuser`) | points to the WordPress volume; passive ports `21000-21010` |
+| Flask site | `http://127.0.0.1:8080` | phishing-awareness "gotcha" page (no PHP) |
+| Adminer | `http://127.0.0.1:8081` | log in with server `mariadb`, the DB user and its password |
+| Netdata | `http://127.0.0.1:19999` | live dashboard, no login or setup |
+
+Ports for the bonus HTTP services are configurable in `srcs/.env`. For FTP from another host, set `FTP_PASV_ADDRESS` in `.env` to the VM/host IP.
 
 ## Project Description
 
@@ -99,9 +114,21 @@ Docker treats it as a named volume (services reference `db_data`, not a raw path
 
 Alpine's base image is ~5 MB vs ~120 MB for Debian. Smaller footprint, fewer default packages, smaller attack surface. All packages needed — `nginx`, `mariadb`, `php-fpm83` — are in its repos. The main tradeoff is musl libc vs glibc compatibility, but nothing in this stack is affected.
 
+### Bonus design choices
+
+- **Redis** — object cache for WordPress, reducing repeated MySQL queries. Enabled via the `redis-cache` plugin pointed at the `redis` container.
+- **FTP (vsftpd)** — mounts the same `wp_data` volume as WordPress, so files can be managed directly over FTP. Demonstrates a volume shared between two containers. Passive mode is enabled (ports `21000-21010`) with `pasv_address` configurable for remote access. The FTP user owns the volume and shares the `nobody` group with PHP-FPM so both can write.
+- **Flask site** — a self-contained Python site (no PHP) served by gunicorn in its own container. It's a phishing-awareness "gotcha": it poses as a password-breach checker, then reveals that typing a password into a random site is how credential phishing works. The submitted value is deliberately never logged, stored, or forwarded — there is no database and no file write.
+- **Adminer** — single-file PHP DB manager served by PHP's built-in server; connects to MariaDB over the `inception` network.
+- **Netdata** — real-time monitoring dashboard installed from the Alpine package. Zero-config: no login and no first-run wizard, so it comes up ready on every fresh `make` (no prepared state needed). Justification: live observability (CPU, memory, disk, network) of the running infrastructure.
+
 ## Resources
 
 - [Docker documentation](https://docs.docker.com/)
+- [vsftpd.conf manual](http://vsftpd.beasts.org/vsftpd_conf.html)
+- [Flask documentation](https://flask.palletsprojects.com/)
+- [Adminer](https://www.adminer.org/)
+- [Netdata documentation](https://learn.netdata.cloud/)
 - [NGINX FastCGI + PHP-FPM](https://www.nginx.com/resources/wiki/start/topics/examples/phpfcgi/)
 - [NGINX: ngx_http_fastcgi_module](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html)
 - [NGINX: ngx_http_ssl_module](https://nginx.org/en/docs/http/ngx_http_ssl_module.html)

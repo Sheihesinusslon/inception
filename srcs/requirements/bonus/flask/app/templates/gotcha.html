@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gotcha.</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="alert">
+    <main class="card">
+        <div class="brand danger">⚠️ GOTCHA</div>
+        <h1>You just typed a password into a random website.</h1>
+
+        <p class="lead">
+            That is <em>exactly</em> how credential phishing works. A reassuring
+            page, a familiar-looking form, a promise that "nothing is stored" —
+            and people hand over the keys to their accounts.
+        </p>
+
+        <div class="verdict good">
+            <span>The good news</span>
+            We threw your input away. Those {{ typed_length }} character{{ 's' if typed_length != 1 else '' }}
+            were never logged, saved, or sent anywhere — read the source, there's
+            no database and no file write.
+        </div>
+
+        <div class="verdict bad">
+            <span>The bad news</span>
+            Next time it might be a real attacker, and they <strong>would</strong>
+            keep it. Never type a real password into a site just because it looks
+            trustworthy.
+        </div>
+
+        <a class="btn" href="/">← I understand, take me back</a>
+    </main>
+    <footer>a friendly phishing-awareness demo · no data collected</footer>
+</body>
+</html>

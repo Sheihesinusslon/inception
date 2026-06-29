@@ -8,6 +8,10 @@
 | WordPress + PHP-FPM | CMS running on port 9000 (internal) |
 | MariaDB | Relational database for WordPress (port 3306, internal) |
 | Redis | In-memory object cache for WordPress (port 6379, internal) |
+| FTP (vsftpd) | File access to the WordPress volume (port 21 + passive 21000-21010) |
+| Flask site | Phishing-awareness "gotcha" page, non-PHP (port 8080) |
+| Adminer | Web database manager for MariaDB (port 8081) |
+| Netdata | Real-time monitoring dashboard (port 19999) |
 
 ## Start and stop
 
@@ -23,8 +27,25 @@ make re       # wipe and rebuild everything from scratch
 |---|---|
 | https://ngusev.42.fr | WordPress site |
 | https://ngusev.42.fr/wp-admin | WordPress admin panel |
+| http://127.0.0.1:8080 | Flask site (phishing-awareness demo) |
+| http://127.0.0.1:8081 | Adminer (database manager) |
+| http://127.0.0.1:19999 | Netdata monitoring dashboard |
 
 > The browser will warn about a self-signed certificate — accept the exception to continue.
+
+### Administration panels
+
+- **Adminer** (`http://127.0.0.1:8081`): log in with **System** = MySQL, **Server** = `mariadb`, **Username** = the DB user (`wpuser`), **Password** = contents of `secrets/db_password.txt`, **Database** = `wordpress`.
+- **Netdata** (`http://127.0.0.1:19999`): opens straight to a live dashboard — no login, no setup. Shows real-time CPU, memory, disk, and network charts.
+
+### FTP access
+
+Connect with any FTP client (e.g. FileZilla or the `ftp` CLI) to `127.0.0.1:21`:
+
+- **User**: `ftpuser`
+- **Password**: contents of `secrets/ftp_password.txt`
+- Use **passive mode**. You land directly in the WordPress files (`/var/www/html`).
+- Connecting from another machine? Set `FTP_PASV_ADDRESS` in `srcs/.env` to the VM/host IP and rebuild the `ftp` service.
 
 Default accounts:
 
@@ -40,6 +61,7 @@ Default accounts:
 | DB user password | `secrets/db_password.txt` |
 | DB root password | `secrets/db_root_password.txt` |
 | WP passwords | `secrets/credentials.txt` |
+| FTP user password | `secrets/ftp_password.txt` |
 
 These files are **gitignored**. Keep them safe locally.
 
@@ -52,6 +74,11 @@ docker logs wordpress        # PHP-FPM / WP setup logs
 docker logs mariadb          # MariaDB logs
 docker logs redis            # Redis logs
 docker exec -it redis redis-cli ping   # should return PONG
+docker logs ftp              # FTP server logs
+docker logs flask            # Flask site logs
+docker logs adminer          # Adminer logs
+docker logs netdata          # Netdata logs
+curl -s http://127.0.0.1:8080/health   # flask site → {"status":"ok"}
 ```
 
 ## Verify HTTPS / TLS

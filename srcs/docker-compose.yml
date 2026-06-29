@@ -58,6 +58,65 @@ services:
       - inception
     restart: unless-stopped
 
+  ftp:
+    image: ftp
+    build: ./requirements/bonus/ftp
+    container_name: ftp
+    depends_on:
+      - wordpress
+    ports:
+      - "${FTP_PORT}:21"
+      - "${FTP_PASV_MIN}-${FTP_PASV_MAX}:${FTP_PASV_MIN}-${FTP_PASV_MAX}"
+    volumes:
+      - wp_data:/var/www/html
+    env_file:
+      - .env
+    secrets:
+      - ftp_password
+    networks:
+      - inception
+    restart: unless-stopped
+
+  flask:
+    image: flask
+    build: ./requirements/bonus/flask
+    container_name: flask
+    ports:
+      - "${FLASK_PORT}:${FLASK_PORT}"
+    env_file:
+      - .env
+    networks:
+      - inception
+    restart: unless-stopped
+
+  adminer:
+    image: adminer
+    build: ./requirements/bonus/adminer
+    container_name: adminer
+    depends_on:
+      - mariadb
+    ports:
+      - "${ADMINER_PORT}:${ADMINER_PORT}"
+    env_file:
+      - .env
+    networks:
+      - inception
+    restart: unless-stopped
+
+  netdata:
+    image: netdata
+    build: ./requirements/bonus/netdata
+    container_name: netdata
+    ports:
+      - "${NETDATA_PORT}:${NETDATA_PORT}"
+    env_file:
+      - .env
+    environment:
+      - DO_NOT_TRACK=1
+    networks:
+      - inception
+    restart: unless-stopped
+
 volumes:
   db_data:
     driver: local
@@ -83,3 +142,5 @@ secrets:
     file: ../secrets/db_root_password.txt
   credentials:
     file: ../secrets/credentials.txt
+  ftp_password:
+    file: ../secrets/ftp_password.txt

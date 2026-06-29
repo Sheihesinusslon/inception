@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BreachGuard · Password Leak Checker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="card">
+        <div class="brand">🔒 BreachGuard</div>
+        <h1>Has your password been leaked?</h1>
+        <p class="subtitle">
+            We cross-check your password against
+            <strong>12,847,392,011</strong> credentials from known data breaches.
+            Instant. Free. 100% secure.
+        </p>
+
+        <form method="post" action="/" autocomplete="off">
+            <input
+                type="password"
+                name="password"
+                placeholder="Enter your password to check…"
+                aria-label="password"
+                autofocus>
+            <button type="submit">Check now →</button>
+        </form>
+
+        <ul class="trust">
+            <li>✔ Bank-grade encryption</li>
+            <li>✔ Nothing is stored</li>
+            <li>✔ Trusted by millions</li>
+        </ul>
+    </main>
+    <footer>🔒 your security is our priority™</footer>
+</body>
+</html>
