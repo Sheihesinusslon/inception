@@ -10,8 +10,9 @@ RUN apk add --no-cache \
 
 RUN ln -sf /usr/bin/php83 /usr/bin/php
 
+ARG ADMINER_VERSION=5.4.2
 RUN mkdir -p /var/www \
-    && wget -q "https://github.com/vrana/adminer/releases/download/v4.8.1/adminer-4.8.1.php" \
+    && wget -q "https://github.com/vrana/adminer/releases/download/v${ADMINER_VERSION}/adminer-${ADMINER_VERSION}.php" \
         -O /var/www/index.php
 
 COPY tools/entrypoint.sh /entrypoint.sh

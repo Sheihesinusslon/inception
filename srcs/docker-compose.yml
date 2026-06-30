@@ -91,7 +91,10 @@ services:
 
   adminer:
     image: adminer
-    build: ./requirements/bonus/adminer
+    build:
+      context: ./requirements/bonus/adminer
+      args:
+        ADMINER_VERSION: ${ADMINER_VERSION}
     container_name: adminer
     depends_on:
       - mariadb

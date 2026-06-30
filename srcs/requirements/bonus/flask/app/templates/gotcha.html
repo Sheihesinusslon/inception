@@ -3,36 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gotcha.</title>
+    <title>BreachGuard · Scanning…</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="alert">
-    <main class="card">
-        <div class="brand danger">⚠️ GOTCHA</div>
-        <h1>You just typed a password into a random website.</h1>
+<body id="body">
 
-        <p class="lead">
-            That is <em>exactly</em> how credential phishing works. A reassuring
-            page, a familiar-looking form, a promise that "nothing is stored" —
-            and people hand over the keys to their accounts.
-        </p>
-
-        <div class="verdict good">
-            <span>The good news</span>
-            We threw your input away. Those {{ typed_length }} character{{ 's' if typed_length != 1 else '' }}
-            were never logged, saved, or sent anywhere — read the source, there's
-            no database and no file write.
+    <!-- ── Phase 1: scanning ──────────────────────────────────── -->
+    <main class="card phase" id="phase-scan">
+        <div class="brand">🔒 BreachGuard</div>
+        <h1>Checking your password…</h1>
+        <p class="subtitle" id="scan-msg">Initialising secure session…</p>
+        <div class="progress-track">
+            <div class="progress-bar" id="pbar"></div>
         </div>
-
-        <div class="verdict bad">
-            <span>The bad news</span>
-            Next time it might be a real attacker, and they <strong>would</strong>
-            keep it. Never type a real password into a site just because it looks
-            trustworthy.
-        </div>
-
-        <a class="btn" href="/">← I understand, take me back</a>
+        <p class="scan-detail" id="scan-detail">Please wait</p>
     </main>
-    <footer>a friendly phishing-awareness demo · no data collected</footer>
+
+    <!-- ── Phase 2: all clear ─────────────────────────────────── -->
+    <main class="card phase" id="phase-safe" style="display:none;opacity:0">
+        <div class="brand">🛡️ BreachGuard Security</div>
+        <span class="safe-icon">✅</span>
+        <h1 class="safe-title">Your password has NOT been leaked!</h1>
+        <p class="lead">
+            Great news! Your credentials appear <strong>completely clean</strong>
+            across all <strong>12,847,392,011</strong> records we checked.
+        </p>
+        <div class="verdict good">
+            <span>Scan complete</span>
+            All {{ typed_length }} character{{ 's' if typed_length != 1 else '' }} verified against
+            847 breach sources. <strong>No match found.</strong>
+        </div>
+        <a class="btn" href="/">← Check another password</a>
+    </main>
+
+    <!-- ── A little something lurking ─────────────────────────── -->
+    <div class="lurker" id="lurker" aria-hidden="true">
+        <svg viewBox="0 0 240 260" xmlns="http://www.w3.org/2000/svg">
+            <!-- face -->
+            <path d="M120 18 C170 18 198 60 198 108 C198 152 174 200 140 232 L120 250 L100 232 C66 200 42 152 42 108 C42 60 70 18 120 18 Z"
+                  fill="rgba(228,228,222,0.18)" stroke="rgba(228,228,222,0.28)" stroke-width="2"/>
+            <!-- eyebrows -->
+            <path d="M58 92 Q82 74 104 90" fill="none" stroke="rgba(8,10,18,0.5)" stroke-width="6" stroke-linecap="round"/>
+            <path d="M182 92 Q158 74 136 90" fill="none" stroke="rgba(8,10,18,0.5)" stroke-width="6" stroke-linecap="round"/>
+            <!-- eyes -->
+            <path d="M66 110 Q86 98 106 110 Q86 122 66 110 Z" fill="rgba(8,10,18,0.55)"/>
+            <path d="M134 110 Q154 98 174 110 Q154 122 134 110 Z" fill="rgba(8,10,18,0.55)"/>
+            <!-- cheeks -->
+            <ellipse cx="74" cy="158" rx="16" ry="11" fill="rgba(214,120,120,0.16)"/>
+            <ellipse cx="166" cy="158" rx="16" ry="11" fill="rgba(214,120,120,0.16)"/>
+            <!-- handlebar mustache -->
+            <path d="M78 150 Q72 138 82 136 M78 150 Q100 160 120 154 Q140 160 162 150 M162 150 Q168 138 158 136"
+                  fill="none" stroke="rgba(8,10,18,0.5)" stroke-width="4" stroke-linecap="round"/>
+            <!-- wide grin -->
+            <path d="M82 162 Q120 206 158 162" fill="none" stroke="rgba(8,10,18,0.5)" stroke-width="4" stroke-linecap="round"/>
+            <!-- soul patch -->
+            <path d="M114 176 L126 176 L120 190 Z" fill="rgba(8,10,18,0.45)"/>
+            <!-- chin beard -->
+            <path d="M104 206 Q120 252 136 206" fill="none" stroke="rgba(8,10,18,0.45)" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+    </div>
+
+    <footer id="footer">🔒 your security is our priority™</footer>
+
+<script>
+const STEPS = [
+    ["Connecting to breach database server…",  "Establishing encrypted TLS 1.3 tunnel"],
+    ["Pulling 12,847,392,011 records…",        "Syncing with 847 verified breach sources"],
+    ["Cross-referencing dark web feeds…",      "Scanning Tor archives and paste sites"],
+    ["Running SHA-256 hash comparison…",       "Zero-knowledge hashing — password never leaves your device"],
+    ["Verifying with government registries…",  "Awaiting clearance from partner agencies"],
+    ["Scanning Collection #1 through #7…",     "Checking 87 GB of leaked credential dumps"],
+    ["Running AI-powered anomaly detection…",  "Neural network cross-referencing complete"],
+    ["Finalising your security report…",       "Applying AES-256 encryption to results"],
+];
+
+const pbar  = document.getElementById("pbar");
+const msgEl = document.getElementById("scan-msg");
+const detEl = document.getElementById("scan-detail");
+const body  = document.getElementById("body");
+
+function fadeIn(el) {
+    el.style.display = "";
+    // double rAF so the browser commits the display change before the opacity transition
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = "1"; }));
+}
+
+function fadeOut(el, cb) {
+    el.style.opacity = "0";
+    setTimeout(() => { el.style.display = "none"; if (cb) cb(); }, 380);
+}
+
+// ── Phase 1 ──
+let step = 0;
+function tick() {
+    if (step >= STEPS.length) {
+        pbar.style.width = "100%";
+        setTimeout(showSafe, 500);
+        return;
+    }
+    pbar.style.width = Math.round(4 + (step / STEPS.length) * 88) + "%";
+    msgEl.textContent = STEPS[step][0];
+    detEl.textContent = STEPS[step][1];
+    step++;
+    setTimeout(tick, 520);
+}
+setTimeout(tick, 400);
+
+// ── Phase 2 ──
+function showSafe() {
+    fadeOut(document.getElementById("phase-scan"), () => {
+        body.classList.add("safe-glow");
+        fadeIn(document.getElementById("phase-safe"));
+        // ...and let something quietly take an interest, a beat later
+        setTimeout(() => document.getElementById("lurker").classList.add("show"), 1100);
+    });
+}
+</script>
 </body>
 </html>

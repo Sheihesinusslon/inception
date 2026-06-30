@@ -30,12 +30,20 @@ echo "your_ftp_password"        > secrets/ftp_password.txt
 ### Run
 
 ```sh
-make          # build images, create data dirs, start stack
-make down     # stop containers
-make re       # full rebuild from scratch
-make fclean   # remove containers + persistent data
-make logs     # follow logs
+make          # build images, create data dirs, start the stack
+make up       # start containers without rebuilding
+make down     # stop and remove all containers (data persists)
+make stop     # stop container(s) without removing (all, or one with S=<service>)
+make rebuild  # rebuild + restart (all, or one with S=<service>)
+make re       # full rebuild from scratch (fclean + build)
+make clean    # stop + docker system prune -af
+make fclean   # remove containers, volumes + persistent host data
+make logs     # follow all container logs
+make ps       # show container status
 ```
+
+`up`, `stop`, and `rebuild` accept an optional `S=<service>` to target a single
+container, e.g. `make rebuild S=wordpress` or `make stop S=nginx`.
 
 The site is available at **https://ngusev.42.fr** after startup.  
 WordPress admin panel: **https://ngusev.42.fr/wp-admin**
@@ -47,7 +55,7 @@ WordPress admin panel: **https://ngusev.42.fr/wp-admin**
 | WordPress (NGINX/TLS) | `https://ngusev.42.fr` | mandatory |
 | Redis cache | internal | object cache for WordPress |
 | FTP server | `ftp://127.0.0.1:21` (user `ftpuser`) | points to the WordPress volume; passive ports `21000-21010` |
-| Flask site | `http://127.0.0.1:8080` | phishing-awareness "gotcha" page (no PHP) |
+| Static site | `http://127.0.0.1:8080` | Python + Flask stack |
 | Adminer | `http://127.0.0.1:8081` | log in with server `mariadb`, the DB user and its password |
 | Netdata | `http://127.0.0.1:19999` | live dashboard, no login or setup |
 
@@ -118,9 +126,9 @@ Alpine's base image is ~5 MB vs ~120 MB for Debian. Smaller footprint, fewer def
 
 - **Redis** — object cache for WordPress, reducing repeated MySQL queries. Enabled via the `redis-cache` plugin pointed at the `redis` container.
 - **FTP (vsftpd)** — mounts the same `wp_data` volume as WordPress, so files can be managed directly over FTP. Demonstrates a volume shared between two containers. Passive mode is enabled (ports `21000-21010`) with `pasv_address` configurable for remote access. The FTP user owns the volume and shares the `nobody` group with PHP-FPM so both can write.
-- **Flask site** — a self-contained Python site (no PHP) served by gunicorn in its own container. It's a phishing-awareness "gotcha": it poses as a password-breach checker, then reveals that typing a password into a random site is how credential phishing works. The submitted value is deliberately never logged, stored, or forwarded — there is no database and no file write.
+- **Flask site** — a self-contained Python site served by gunicorn in its own container. It's a little app to check if your password has ever been leaked to the Internet.
 - **Adminer** — single-file PHP DB manager served by PHP's built-in server; connects to MariaDB over the `inception` network.
-- **Netdata** — real-time monitoring dashboard installed from the Alpine package. Zero-config: no login and no first-run wizard, so it comes up ready on every fresh `make` (no prepared state needed). Justification: live observability (CPU, memory, disk, network) of the running infrastructure.
+- **Netdata** — real-time monitoring dashboard installed from the Alpine package. Deployed for live observability (CPU, memory, disk, network) of the running infrastructure.
 
 ## Resources
 

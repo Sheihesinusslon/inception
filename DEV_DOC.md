@@ -35,13 +35,20 @@
 
 | Command | Effect |
 |---|---|
-| `make` | Build images + start stack |
-| `make down` | Stop containers (volumes intact) |
-| `make clean` | Stop + `docker system prune -af` |
-| `make fclean` | Clean + delete host data dirs |
-| `make re` | `fclean` then `make` |
+| `make` (`all`) | Create data dirs, build images, start the stack |
+| `make up` | Start containers without rebuilding (all, or `S=<service>`) |
+| `make down` | Stop and remove all containers (volumes intact) |
+| `make stop` | Stop container(s) without removing (all, or `S=<service>`) |
+| `make rebuild` | Rebuild + restart with `--no-deps` (all, or `S=<service>`) |
+| `make re` | `fclean` then full build |
+| `make clean` | `down` + `docker system prune -af` |
+| `make fclean` | `down -v --remove-orphans`, prune images, delete host data dirs |
 | `make logs` | Follow all container logs |
 | `make ps` | Show container status |
+
+The `up`, `stop`, and `rebuild` targets take an optional service selector `S=<service>`
+to act on a single container instead of the whole stack — e.g. `make rebuild S=wordpress`,
+`make stop S=nginx`, `make up S=flask`. Leave `S` empty to target all containers.
 
 ## Container management
 
@@ -71,22 +78,35 @@ docker compose -f srcs/docker-compose.yml --env-file srcs/.env up -d
 |---|---|---|
 | `DOMAIN_NAME` | `ngusev.42.fr` | TLS CN + site URL |
 | `NGINX_PORT` | `443` | public HTTPS port |
+| `MYSQL_DATABASE` † | `wordpress` | WordPress database name |
+| `MYSQL_USER` † | `wpuser` | DB user (password in `secrets/db_password.txt`) |
 | `MYSQL_PORT` | `3306` | mysqld port; WP connects here |
+| `WP_ADMIN_USER` † | `ngusev_wp` | WP administrator login (must not contain `admin`) |
+| `WP_ADMIN_EMAIL` † | `admin@ngusev.42.fr` | WP administrator email |
+| `WP_USER` † | `ngusev_editor` | WP second user (author role) |
+| `WP_USER_EMAIL` † | `editor@ngusev.42.fr` | WP second user email |
 | `PHP_FPM_PORT` | `9000` | PHP-FPM port; nginx `fastcgi_pass` |
 | `PHP_FPM_MAX_CHILDREN` | `5` | FPM worker cap |
 | `PHP_MEMORY_LIMIT` / `PHP_UPLOAD_MAX_FILESIZE` / `PHP_POST_MAX_SIZE` | `512M` / `64M` / `64M` | PHP limits |
 | `REDIS_PORT` | `6379` | Redis port; WP cache target |
-| `REDIS_MAXMEMORY` / `REDIS_MAXMEMORY_POLICY` | `256mb` / `allkeys-lru` | Redis memory |
+| `REDIS_MAXMEMORY` / `REDIS_MAXMEMORY_POLICY` | `256mb` / `allkeys-lru` | Redis memory + eviction policy |
 | `FTP_USER` | `ftpuser` | FTP login (password in `secrets/ftp_password.txt`) |
 | `FTP_PORT` | `21` | FTP control port |
 | `FTP_PASV_MIN` / `FTP_PASV_MAX` | `21000` / `21010` | passive data port range (published in compose) |
 | `FTP_PASV_ADDRESS` | `127.0.0.1` | address advertised for passive mode; set to VM/host IP for remote access |
 | `FLASK_PORT` | `8080` | Flask site port |
+| `FLASK_WORKERS` | `2` | gunicorn worker processes for the Flask site |
 | `ADMINER_PORT` | `8081` | Adminer port |
+| `ADMINER_VERSION` | `5.4.2` | Adminer release downloaded at **build** time (compose `build.args` → Dockerfile `ARG`) |
 | `NETDATA_PORT` | `19999` | Netdata dashboard port |
 
-`MYSQL_DATABASE` / `MYSQL_USER` are written into the DB volume on first init —
-changing them later needs `make fclean && make`. Everything above changes live.
+**† First-init only.** These are baked into the persistent volumes during the very first
+`make` (DB name/user into `db_data`; WP usernames/emails into `wp_data` at `wp core install`).
+Changing them afterwards has no effect until you wipe state with `make fclean && make`.
+
+`ADMINER_VERSION` is consumed at image build, so a change needs a rebuild
+(`make rebuild S=adminer`), not just a restart. Every other variable above changes live —
+re-run `docker compose ... up -d` (no `--build`) to apply.
 
 ## Data persistence
 
@@ -119,12 +139,12 @@ Secrets are mounted read-only at `/run/secrets/<name>` inside containers. They a
 
 ## First-run initialisation logic
 
-- **MariaDB** (`tools/init.sh`): creates `/run/mysqld` (socket dir, wiped each start). If `/var/lib/mysql/mysql` does not exist, runs `mysql_install_db`, starts mysqld without networking, creates database and user from secrets, then shuts down and re-launches with `exec mysqld --port=${MYSQL_PORT}` (PID 1).
-- **WordPress** (`tools/setup.sh`): renders `www.conf`/`php.ini` from env, downloads core + creates `wp-config.php` if missing, then **reconciles `DB_HOST` and Redis host/port on every start** (so port changes apply without wiping the volume), waits for MariaDB with `mariadb-admin ping -P ${MYSQL_PORT}`, runs `wp core install` + author user + Redis cache plugin if not yet installed, and finally `exec php-fpm83 -F` (PID 1).
+- **MariaDB** (`tools/init.sh`): creates `/run/mysqld` (socket dir, wiped each start). If `/var/lib/mysql/mysql` does not exist, runs `mysql_install_db`, starts mysqld without networking, creates database and user from secrets, then shuts down and re-launches with `exec mysqld --port=${MYSQL_PORT}`.
+- **WordPress** (`tools/setup.sh`): renders `www.conf`/`php.ini` from env, downloads core + creates `wp-config.php` if missing, then **reconciles `DB_HOST` and Redis host/port on every start** (so port changes apply without wiping the volume), waits for MariaDB with `mariadb-admin ping -P ${MYSQL_PORT}`, runs `wp core install` + author user + Redis cache plugin if not yet installed, and finally `exec php-fpm83 -F`.
 - **FTP** (`tools/entrypoint.sh`): renders `vsftpd.conf` from env, creates `${FTP_USER}` (home = `/var/www/html`) and sets its password from the `ftp_password` secret, then `chown -R ${FTP_USER}:nobody` + `chmod -R g+rwX` the shared volume so both FTP and PHP-FPM (group `nobody`) can write, and `exec vsftpd` (PID 1, `background=NO`).
-- **Flask** (`app/entrypoint.sh`): `exec gunicorn --bind 0.0.0.0:${FLASK_PORT} app:app` (PID 1). The app is a phishing-awareness "gotcha"; the submitted password is never logged, stored, or forwarded (no DB, no file write).
-- **Adminer** (`tools/entrypoint.sh`): `exec php -S 0.0.0.0:${ADMINER_PORT} -t /var/www` (PID 1); `index.php` is the Adminer single-file release baked into the image.
-- **Netdata** (`tools/entrypoint.sh`): installed from the Alpine `netdata` package; `exec netdata -D -p ${NETDATA_PORT}` (PID 1). Zero-config — no login or first-run wizard, so it comes up ready on a fresh `make`. `DO_NOT_TRACK=1` disables anonymous telemetry. No persistent volume: the live dashboard needs no stored state.
+- **Flask** (`app/entrypoint.sh`): `exec gunicorn --bind 0.0.0.0:${FLASK_PORT} app:app`.
+- **Adminer** (`tools/entrypoint.sh`): `exec php -S 0.0.0.0:${ADMINER_PORT} -t /var/www`; `index.php` is the Adminer single-file release baked into the image.
+- **Netdata** (`tools/entrypoint.sh`): installed from the Alpine `netdata` package; `exec netdata -D -p ${NETDATA_PORT}`. No persistent volume: the live dashboard needs no stored state.
 
 ## TLS verification
 

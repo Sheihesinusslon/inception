@@ -9,7 +9,7 @@
 | MariaDB | Relational database for WordPress (port 3306, internal) |
 | Redis | In-memory object cache for WordPress (port 6379, internal) |
 | FTP (vsftpd) | File access to the WordPress volume (port 21 + passive 21000-21010) |
-| Flask site | Phishing-awareness "gotcha" page, non-PHP (port 8080) |
+| Flask site | Check-your-password-app (port 8080) |
 | Adminer | Web database manager for MariaDB (port 8081) |
 | Netdata | Real-time monitoring dashboard (port 19999) |
 
@@ -78,7 +78,7 @@ docker logs ftp              # FTP server logs
 docker logs flask            # Flask site logs
 docker logs adminer          # Adminer logs
 docker logs netdata          # Netdata logs
-curl -s http://127.0.0.1:8080/health   # flask site → {"status":"ok"}
+curl -s http://127.0.0.1:8080/health   # flask site → {"status":"OK"}
 ```
 
 ## Verify HTTPS / TLS
